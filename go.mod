@@ -1,4 +1,4 @@
-module whitesmith
+module github.com/ThiraSoft/talos
 
 go 1.23.0
 

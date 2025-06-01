@@ -1,4 +1,4 @@
-package agentic
+package talos
 
 import "github.com/google/uuid"
 
@@ -26,15 +26,12 @@ func NewTask(name, description string) *Task {
 		Id:          id,
 		Name:        name,
 		Description: description,
-		StateStage:  0,
-		StateFlow:   []TaskState{TO_PLAN, TO_DO, DONE},
+		StateStage:  0,                                 // unused for now, but can be used to track the current state index
+		StateFlow:   []TaskState{TO_PLAN, TO_DO, DONE}, // Unused for now, but can be used to track the state flow
 	}
 }
 
-// func (task *Task) AddAgent(agent *Agent) {
-// 	task.Agents = append(task.Agents, agent)
-// }
-
+// UNused for now, but can be used to track the current state index
 func (t *Task) IsDone() bool {
 	return t.StateStage == len(t.StateFlow)-1
 }

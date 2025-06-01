@@ -1,8 +1,9 @@
-package agentic
+package talos
 
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -10,7 +11,9 @@ import (
 )
 
 // Tools provides a set of tools that can be used by agents to perform specific tasks.
-var DefaultTools = []*genai.Tool{}
+var (
+	DefaultTools = []*genai.Tool{}
+)
 
 func init() {
 	DefaultTools = append(
@@ -23,7 +26,6 @@ func init() {
 	)
 }
 
-// Placeholder for tool calls
 func CallTool(fn *genai.FunctionCall) (string, error) {
 	if fn.Name == "send_message" {
 		resp, err := SendMessage(fn)
@@ -36,7 +38,7 @@ func CallTool(fn *genai.FunctionCall) (string, error) {
 	if fn.Name == "write_file" {
 		resp, err := WriteFile(fn)
 		if err != nil {
-			return "", fmt.Errorf("error calling write_page tool: %w", err)
+			return "", fmt.Errorf("error calling write_file tool: %w", err)
 		}
 		return resp, nil
 	}
@@ -91,38 +93,22 @@ func SendMessage(tool *genai.FunctionCall) (string, error) {
 	message := tool.Args["message"].(string)
 	// from := tool.Args["from"].(string)
 	to := tool.Args["to"].(string)
-	fmt.Println("\n Sending message to : ", to, "\n Message : ", message)
+	// fmt.Println("\n Sending message to : ", to, "\n Message : ", message)
 
-	var response string
+	var response string = ""
 	var err error
 
-	// question
-	for _, agent := range Agents {
+	for _, agent := range Agents { // Global Agents is updated by the flow when it starts
 		if agent.Name == to {
-			fmt.Println("\nFound agent:", agent.Name)
+			// fmt.Println("\nFound agent:", agent.Name)
 			response, err = agent.ChatWithRetry(message, 5)
 			if err != nil {
 				return "Error while asking " + to + ": " + err.Error(), fmt.Errorf("Error while asking " + to + ": " + err.Error())
 			}
-			break
+			return "Response from " + agent.Name + " : " + response, nil
 		}
 	}
 	return response, nil
-
-	// // response
-	// if response != "" {
-	// 	for _, agent := range Agents {
-	// 		if agent.Name == from {
-	// 			fmt.Println("\nFound agent:", agent.Name)
-	// 			_, err = agent.ChatWithRetry("Response from "+to+" : "+response, 5)
-	// 			if err != nil {
-	// 				return fmt.Errorf("Error while returning the response from " + to + " to " + from + ": " + err.Error())
-	// 			}
-	// 		}
-	// 	}
-	// }
-
-	// return nil
 }
 
 func Tool_Definition_WriteFile() *genai.Tool {
@@ -130,20 +116,20 @@ func Tool_Definition_WriteFile() *genai.Tool {
 		FunctionDeclarations: []*genai.FunctionDeclaration{
 			{
 				Name:        "write_file",
-				Description: "Write a file with a path/filename and a content.",
+				Description: "Write a file given a file_name and a content.",
 				Parameters: &genai.Schema{
 					Type: "object",
 					Properties: map[string]*genai.Schema{
-						"filename": {
+						"file_name": {
 							Type:        "string",
-							Description: "The relative path/filename of the file to create.",
+							Description: "The name of the file to create",
 						},
 						"content": {
 							Type:        "string",
-							Description: "The content of the page to write.",
+							Description: "The string content of the file to create.",
 						},
 					},
-					Required: []string{"filename", "content"},
+					Required: []string{"file_name", "content"},
 				},
 			},
 		},
@@ -153,13 +139,19 @@ func Tool_Definition_WriteFile() *genai.Tool {
 
 func WriteFile(tool *genai.FunctionCall) (string, error) {
 	// Validation
-	filename, ok := tool.Args["filename"].(string)
+	filename, ok := tool.Args["file_name"].(string)
 	if !ok {
-		return "Invalid arguments 'filename' for write_file tool", fmt.Errorf("Invalid arguments 'filename' for write_file tool")
+		return "Invalid arguments 'file_name' for write_file tool", fmt.Errorf("Invalid arguments 'file_name' for write_file tool")
 	}
 	content, ok := tool.Args["content"].(string)
 	if !ok {
 		return "Invalid arguments 'content' for write_file tool", fmt.Errorf("Invalid arguments 'content' for write_file tool")
+	}
+
+	// Create the directory if it does not exist
+	if err := os.MkdirAll(filepath.Dir(filename), 0755); err != nil {
+		fmt.Println("Error creating directory:", err)
+		return "Error creating directory: " + err.Error(), err
 	}
 
 	// Convert the message to bytes

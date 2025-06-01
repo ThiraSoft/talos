@@ -1,19 +1,23 @@
-package agentic
+package talos
 
 import (
+	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	"google.golang.org/genai"
 )
 
 type Flow struct {
-	ID          string           `json:"id"`
+	Id          string           `json:"id"`
 	Name        string           `json:"name"`
 	Description string           `json:"description"`
 	Tasks       []*Task          `json:"tasks"`
 	Agents      []*Agent         `json:"agents"`  // Agents involved in the flow
 	History     []*genai.Content `json:"history"` // History of the flow
 }
+
+var Agents = []*Agent{}
 
 func (f *Flow) AddTask(task Task) {
 	f.Tasks = append(f.Tasks, &task)
@@ -28,18 +32,20 @@ func (f *Flow) RemoveTask(taskId string) {
 	}
 }
 
-func NewFlow(id, name, description string, tasks []*Task, agents []*Agent) *Flow {
+func NewFlow(name, description string, tasks []*Task, agents []*Agent) *Flow {
+	id := uuid.New().String()
 	flow := &Flow{
-		ID:          id,
+		Id:          id,
 		Name:        name,
 		Description: description,
 		Tasks:       tasks,
 		Agents:      agents,
-		History:     []*genai.Content{},
+		History:     make([]*genai.Content, 0, 10000),
 	}
 
 	// Initialize the common history for each agent
 	for _, agent := range agents {
+		// agent.ChatSession.SetHistory(flow.History)
 		agent.History = flow.History
 	}
 
@@ -54,11 +60,13 @@ func (f *Flow) AddAgents(agents ...*Agent) {
 
 	for _, a := range agents {
 		f.Agents = append(f.Agents, a)
-		a.History = f.History
+		// a.ChatSession.SetHistory(f.History)
+		a.History = f.History // Set the common history for each agent
 	}
 }
 
 func (f *Flow) Start() string {
+	Agents = f.Agents // Update the global agents list, fo the tools to access
 	if len(f.Tasks) == 0 {
 		return "No tasks to start."
 	}
@@ -69,8 +77,9 @@ func (f *Flow) Start() string {
 	// Prepare agents instructions
 	agents_info_instructions := `
   Your goal is to fulfill the tasks assigned to you. 
-  You can notify the current task is done by saying #TASK_DONE in your response.
-  You can send messages to other agents (or respond to them) using the send_message function.
+  You MUST notify when the task is completed by saying TASK_DONE in your response.
+  You MUST use the send_message tool to contace other agents (or respond to them).
+  If you don't use the send_message tool when you talk to another agent, the message will not be sent.
   Here is the list of currently available agents: 
   `
 	for _, agent := range f.Agents {
@@ -82,17 +91,26 @@ func (f *Flow) Start() string {
 
 	// Iterate through each task and execute it with the available agents
 	for _, t := range f.Tasks {
+		firstCall := true
 		for {
-			resp, err := f.Agents[0].ChatWithRetry(t.Description, 5)
+			msg := ""
+			if firstCall {
+				msg = t.Description
+			} else {
+				msg = "Please continue with the task: " + t.Description
+			}
+
+			resp, err := f.Agents[0].ChatWithRetry(msg, 5)
 			if err != nil {
 				return "Error executing task: " + err.Error()
 			}
-			if strings.Contains(resp, "#TASK_DONE") {
+			if strings.Contains(resp, "TASK_DONE") {
+				fmt.Println("Task "+t.Name+" completed by agent:", f.Agents[0].Name)
 				break
 			}
-
 		}
 	}
 
+	Agents = []*Agent{} // Clear the global agents list after the flow is done
 	return "Done"
 }

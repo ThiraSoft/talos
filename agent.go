@@ -1,7 +1,15 @@
-package agentic
+package talos
 
 import (
 	"google.golang.org/genai"
+)
+
+var (
+	// DEFAULT_MODEL       "gemini-2.5-flash-preview-04-17"
+	// DEFAULT_MODEL         "gemini-2.0-flash-lite"
+	// DEFAULT_MODEL    string   = "gemini-2.0-flash"
+	DEFAULT_MODEL    string   = "gemini-2.5-flash-preview-05-20"
+	DEFAULT_PROVIDER Provider = PROVIDER_GOOGLE // Default provider to use if not specified
 )
 
 type Agent struct {
@@ -17,21 +25,21 @@ type Agent struct {
 	History       []*genai.Content
 	Configuration *genai.GenerateContentConfig
 	Tools         []*genai.Tool
+	PartsBuffer   []*genai.Part // For tools responses
 }
 
-func NewAgent(name, desc, instructions string) *Agent {
+func NewAgent(name, desc, instructions string, provider Provider, model string) *Agent {
 	na := Agent{
-		Name:        name,
-		Description: desc,
-		Provider:    GOOGLE,
-		// Model:       "gemini-2.5-flash-preview-04-17",
-		// Model:       "gemini-2.5-flash-preview-05-20",
-		Model:         "gemini-2.0-flash-lite",
-		History:       []*genai.Content{},
+		Name:          name,
+		Description:   desc,
+		Provider:      provider,
+		Model:         model,
+		History:       make([]*genai.Content, 0, 10000),
 		ChatSession:   &genai.Chat{},
 		Configuration: &genai.GenerateContentConfig{},
 		Temperature:   float32(1.0),
 		Tools:         []*genai.Tool{},
+		PartsBuffer:   make([]*genai.Part, 0, 10000), // For tools responses
 	}
 
 	baseInstructions := "You are an AI agent named " + na.Name + ".\n"

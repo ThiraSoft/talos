@@ -1,4 +1,4 @@
-package agentic
+package talos
 
 import (
 	"context"

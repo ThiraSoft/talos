@@ -1,4 +1,4 @@
-package agentic
+package talos
 
 import (
 	"context"
@@ -60,12 +60,24 @@ func isRetryableError(err error) bool {
 }
 
 func (a *Agent) Chat(input string) (string, error) {
-	fullResponse := ""
+	fullResponse := a.Name + " : "
 	cs := a.ChatSession
-	// stream := cs.SendMessageStream(Ctx, genai.Part{Text: input})
 
-	res, err := cs.SendMessage(Ctx, genai.Part{Text: input})
-	fmt.Println("\n" + a.Name + " : \n")
+	// for each part in the buffer, append it to the parts slice
+	parts := []genai.Part{}
+	if len(a.PartsBuffer) != 0 {
+		for _, content := range a.PartsBuffer {
+			parts = append(parts, *content)
+		}
+		a.PartsBuffer = make([]*genai.Part, 0, 10000) // Reset buffer after sending
+	}
+	parts = append(parts, genai.Part{Text: input})
+
+	// send the message to the chat session
+	res, err := cs.SendMessage(Ctx, parts...)
+	fmt.Println("\n======================")
+	fmt.Println(" " + a.Name + " : ")
+	fmt.Println("======================")
 	if err != nil {
 		fmt.Println("Error receiving response:", err)
 	}
@@ -83,67 +95,58 @@ func (a *Agent) Chat(input string) (string, error) {
 		return "", fmt.Errorf("no content in candidate from chat session")
 	}
 
+	fmt.Println("PARTS : ", len(res.Candidates[0].Content.Parts))
+	for _, part := range res.Candidates[0].Content.Parts {
+		fmt.Println("Part text: ", part.Text)
+		if part.FunctionCall != nil {
+			fmt.Println("Part FunctionCall: ", part.FunctionCall.Name, part.FunctionCall.Args)
+		}
+	}
+
 	for _, p := range res.Candidates[0].Content.Parts {
 		fullResponse += p.Text
 		responseHandler(p)
-		a.toolHandler(p)
-	}
 
-	// fmt.Println("\n" + a.Name + " : \n")
-	// for chunk, err := range stream {
-	// 	if err != nil {
-	// 		fmt.Println("Error receiving response:", err)
-	// 	}
-	//
-	// 	// Log the chunk for debugging
-	// 	if chunk == nil {
-	// 		fmt.Println("Received nil chunk, skipping...")
-	// 		continue
-	// 	}
-	// 	if len(chunk.Candidates) == 0 {
-	// 		fmt.Println("No candidates in chunk, skipping...")
-	// 		continue // Skip if no candidates in the chunk
-	// 	}
-	// 	if chunk.Candidates[0].Content == nil {
-	// 		fmt.Println("No content in candidate, skipping...")
-	// 		continue // Skip if no parts in the candidate content
-	// 	}
-	//
-	// 	part := chunk.Candidates[0].Content.Parts[0]
-	// 	responseHandler(part)
-	// 	fullResponse += part.Text
-	//
-	// 	a.toolHandler(part)
-	// }
+		toolResponse, err := a.toolHandler(p)
+		if err != nil {
+			return "", fmt.Errorf("error handling tool response: %w", err)
+		}
+
+		fullResponse += toolResponse
+	}
 
 	return fullResponse, nil
 }
 
 func responseHandler(part *genai.Part) (string, error) {
 	response := fmt.Sprint(part.Text)
-	fmt.Print(response)
+	// fmt.Print(response)
 
 	return response, nil
 }
 
-func (a *Agent) toolHandler(part *genai.Part) {
+func (a *Agent) toolHandler(part *genai.Part) (string, error) {
 	// Vérifier s'il y a un appel de fonction
 	if part.FunctionCall != nil {
-		// Si c'est un appel de fonction, on l'affiche
-		fmt.Printf("Tool call detected\nTool : %s\nArgs : %s\n", part.FunctionCall.Name, part.FunctionCall.Args)
-
-		// Si c'est un appel de fonction, on l'exécute
 		fn := part.FunctionCall
 		resp, err := CallTool(fn)
 		if err != nil {
 			fmt.Print("Erreur lors de l'utilisation du tool : ", err)
+			return "", fmt.Errorf("error calling tool %s: %w", fn.Name, err)
 		}
 
-		// Appeler le chat avec la réponse de la fonction
-		_, err = a.ChatWithRetry(resp, 5)
-		if err != nil {
-			fmt.Print("Erreur lors de l'appel à l'API : ", err)
-			return
-		}
+		// Add the response to the agent's history
+		// a.ChatSession.AppendToHistory(
+		a.PartsBuffer = append(a.PartsBuffer,
+			&genai.Part{
+				FunctionResponse: &genai.FunctionResponse{
+					Name:     fn.Name,
+					Response: map[string]any{"Response": resp},
+				},
+			},
+		)
+
+		return resp, err
 	}
+	return "", nil
 }

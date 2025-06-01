@@ -1,17 +1,22 @@
-package agents
+package main
 
-import (
-	"whitesmith/pkg/agentic"
-)
+import "github.com/ThiraSoft/talos"
+
+// =================
+// This example shows how to use Talos with tools to create a fantasy world.
+// It creates an AUTHOR agent who is responsible for writing the story, a WORLD_SHAPER agent who creates the environment and challenges, and a CHARACTER_SHAPER agent who creates the characters and their personalities.
+// The AUTHOR agent can use the WORLD_SHAPER and CHARACTER_SHAPER agents to help with specific tasks.
+// The agents can use tools to write files, which will be used to create some files in order to save their brainstorming and ideas for a book.
+// =================
 
 var (
-	AUTHOR           *agentic.Agent
-	WORLD_SHAPER     *agentic.Agent
-	CHARACTER_SHAPER *agentic.Agent
+	AUTHOR           *talos.Agent
+	WORLD_SHAPER     *talos.Agent
+	CHARACTER_SHAPER *talos.Agent
 )
 
 func init() {
-	AUTHOR = agentic.NewAgent(
+	AUTHOR = talos.NewAgent(
 		"AUTHOR",
 		"L'auteur qui imagine l'histoire, les dialogues et les descriptions.",
 		`
@@ -33,11 +38,13 @@ func init() {
     Afin d'avoir un résultat modulaire, tu dois créer un fichier pour chaque élément de l'histoire, comme les personnages, les lieux, les créatures, et les intrigues.
     Amuis-toi à créer des fichiers pour chaque éléments du monde créé, 
     `,
+		talos.PROVIDER_GOOGLE,
+		"gemini-2.5-flash-preview-05-20",
 	)
 	// Add tools to the AUTHOR agent
-	AUTHOR.AddTools(agentic.DefaultTools...)
+	AUTHOR.AddTools(talos.DefaultTools...)
 
-	WORLD_SHAPER = agentic.NewAgent(
+	WORLD_SHAPER = talos.NewAgent(
 		"WORLD_SHAPER",
 		"Le world shaper qui crée l'environnement et les défis du livre. Peut répondre sur la géographie, la faune et la flore, et les lois du monde.",
 		`
@@ -54,10 +61,12 @@ func init() {
     Lorsque tu estimes avoir suffisamment d'informations sur un élément de type lieux, tu peux le sauvegarder dans un fichier en utilisant la fonction write_file en utilisant des noms de fichiers descriptifs et pertinents de ton choix.
 
     `,
+		talos.PROVIDER_GOOGLE,
+		"gemini-2.0-flash-lite",
 	)
-	WORLD_SHAPER.AddTools(agentic.Tool_Definition_WriteFile())
+	WORLD_SHAPER.AddTools(talos.Tool_Definition_WriteFile())
 
-	CHARACTER_SHAPER = agentic.NewAgent(
+	CHARACTER_SHAPER = talos.NewAgent(
 		"CHARACTER_SHAPER",
 		"Le character shaper qui crée les personnages et leurs personnalités. Peut faire de l'analyse psychologique des personnages.",
 		`
@@ -76,6 +85,43 @@ func init() {
     Lorsque tu estimes avoir suffisamment d'informations sur un élément de type créature ou personnage, tu peux le sauvegarder dans un fichier en utilisant la fonction write_file en utilisant des noms de fichiers descriptifs et pertinents de ton choix.
 
     `,
+		talos.PROVIDER_GOOGLE,
+		"gemini-2.0-flash-lite",
 	)
-	WORLD_SHAPER.AddTools(agentic.Tool_Definition_WriteFile())
+	WORLD_SHAPER.AddTools(talos.Tool_Definition_WriteFile())
+}
+
+func main() {
+	TASK_1 := talos.NewTask(
+		"Epic Fantasy",
+		`
+    Décrire un monde fantastique épique avec des personnages et des intrigues captivantes.
+    Chaque élément de l'histoire doit être soigneusement développé pour créer une expérience immersive.
+    Ce qui va être créé sera sauvegardé dans des fichiers textes afin de servir de base pour l'écriture d'un livre.
+    Il faut créer des personnages, bons et mauvais avec des nuances, des créatures, des lieux, des intrigues.
+    Chaque personnage doit avoir une personnalité, un rôle et des interactions avec les autres personnages.
+    Chaque créature doit être unique, avec des caractéristiques et des comportements distincts.
+    Chaque lieu doit avoir une description, une histoire et un rôle dans l'intrigue.
+    Chaque intrigue doit être développée avec des rebondissements, des conflits et des résolutions.
+    Chaque élément doit être cohérent et contribuer à l'ensemble de l'histoire.
+
+    Dans les fichiers textes, il faut utiliser des sections pour organiser les informations.
+    Chaque section doit être clairement définie et structurée.
+    Donne le plus de détails possible sur chaque éléments.
+  `,
+	)
+
+	// Make the flow
+	flow := talos.NewFlow(
+		"Name of the flow",
+		"Description of the flow",
+		[]*talos.Task{TASK_1},
+		[]*talos.Agent{
+			AUTHOR, // The first agent is the one who is asked to execute the task first
+			WORLD_SHAPER,
+			CHARACTER_SHAPER,
+		},
+	)
+
+	flow.Start()
 }
