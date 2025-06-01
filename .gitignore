@@ -1,0 +1,47 @@
+# macOS system files
+.DS_Store
+
+# Golang specific
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+*.cover
+
+# Dependency directories
+vendor/
+go.sum
+
+# Go workspace file
+go.work
+go.work.sum
+
+# IDE specific
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+
+# Build directory
+build/
+bin/
+dist/
+
+# Temporary files
+tmp/
+temp/
