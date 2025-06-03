@@ -26,7 +26,13 @@ func init() {
 	)
 }
 
-func CallTool(fn *genai.FunctionCall) (string, error) {
+func (a *Agent) CallTool(fn *genai.FunctionCall) (string, error) {
+	// Custom function to call tool functions first, if provided.
+	if a.CallToolFunction != nil {
+		return a.CallToolFunction(a, fn)
+	}
+
+	// If no custom function is provided, use the default tool handler.
 	if fn.Name == "send_message" {
 		resp, err := SendMessage(fn)
 		if err != nil {

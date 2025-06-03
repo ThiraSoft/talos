@@ -129,7 +129,7 @@ func (a *Agent) toolHandler(part *genai.Part) (string, error) {
 	// Vérifier s'il y a un appel de fonction
 	if part.FunctionCall != nil {
 		fn := part.FunctionCall
-		resp, err := CallTool(fn)
+		resp, err := a.CallTool(fn)
 		if err != nil {
 			fmt.Print("Erreur lors de l'utilisation du tool : ", err)
 			return "", fmt.Errorf("error calling tool %s: %w", fn.Name, err)
@@ -149,4 +149,72 @@ func (a *Agent) toolHandler(part *genai.Part) (string, error) {
 		return resp, err
 	}
 	return "", nil
+}
+
+func (a *Agent) ChatWithAudio(audioBytes []byte) (string, error) {
+	fullResponse := a.Name + " : "
+	cs := a.ChatSession
+
+	// for each part in the buffer, append it to the parts slice
+	parts := []genai.Part{}
+	if len(a.PartsBuffer) != 0 {
+		for _, content := range a.PartsBuffer {
+			parts = append(parts, *content)
+		}
+		a.PartsBuffer = make([]*genai.Part, 0, 10000) // Reset buffer after sending
+	}
+
+	// Add audio
+	newPart := genai.Part{
+		InlineData: &genai.Blob{
+			MIMEType: "audio/mp3",
+			Data:     audioBytes,
+		},
+	}
+
+	parts = append(parts, newPart)
+
+	// send the message to the chat session
+	res, err := cs.SendMessage(Ctx, parts...)
+	fmt.Println("\n======================")
+	fmt.Println(" " + a.Name + " : ")
+	fmt.Println("======================")
+	if err != nil {
+		fmt.Println("Error receiving response:", err)
+	}
+
+	if res == nil {
+		fmt.Println("Received nil chunk, skipping...")
+		return "", fmt.Errorf("received nil response from chat session")
+	}
+	if len(res.Candidates) == 0 {
+		fmt.Println("No candidates in chunk, skipping...")
+		return "", fmt.Errorf("no candidates in response from chat session")
+	}
+	if res.Candidates[0].Content == nil {
+		fmt.Println("No content in candidate, skipping...")
+		return "", fmt.Errorf("no content in candidate from chat session")
+	}
+
+	fmt.Println("PARTS : ", len(res.Candidates[0].Content.Parts))
+	for _, part := range res.Candidates[0].Content.Parts {
+		fmt.Println("Part text: ", part.Text)
+		if part.FunctionCall != nil {
+			fmt.Println("Part FunctionCall: ", part.FunctionCall.Name, part.FunctionCall.Args)
+		}
+	}
+
+	for _, p := range res.Candidates[0].Content.Parts {
+		fullResponse += p.Text
+		responseHandler(p)
+
+		toolResponse, err := a.toolHandler(p)
+		if err != nil {
+			return "", fmt.Errorf("error handling tool response: %w", err)
+		}
+
+		fullResponse += toolResponse
+	}
+
+	return fullResponse, nil
 }
