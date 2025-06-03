@@ -42,7 +42,7 @@ func init() {
 		"gemini-2.5-flash-preview-05-20",
 	)
 	// Add tools to the AUTHOR agent
-	AUTHOR.AddTools(talos.DefaultTools...)
+	AUTHOR.AddFunctionDeclarations(talos.Tool_Definition_SendMessage, talos.Tool_Definition_WriteFile)
 
 	WORLD_SHAPER = talos.NewAgent(
 		"WORLD_SHAPER",
@@ -64,7 +64,7 @@ func init() {
 		talos.PROVIDER_GOOGLE,
 		"gemini-2.0-flash-lite",
 	)
-	WORLD_SHAPER.AddTools(talos.Tool_Definition_WriteFile())
+	WORLD_SHAPER.AddFunctionDeclarations(talos.Tool_Definition_WriteFile)
 
 	CHARACTER_SHAPER = talos.NewAgent(
 		"CHARACTER_SHAPER",
@@ -88,7 +88,7 @@ func init() {
 		talos.PROVIDER_GOOGLE,
 		"gemini-2.0-flash-lite",
 	)
-	WORLD_SHAPER.AddTools(talos.Tool_Definition_WriteFile())
+	WORLD_SHAPER.AddFunctionDeclarations(talos.Tool_Definition_WriteFile)
 }
 
 func main() {

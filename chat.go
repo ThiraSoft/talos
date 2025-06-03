@@ -80,6 +80,7 @@ func (a *Agent) Chat(input string) (string, error) {
 	fmt.Println("======================")
 	if err != nil {
 		fmt.Println("Error receiving response:", err)
+		return fmt.Sprintf("error receiving response from chat session : %w", err), fmt.Errorf("error receiving response from chat session: %w", err)
 	}
 
 	if res == nil {
@@ -181,6 +182,7 @@ func (a *Agent) ChatWithAudio(audioBytes []byte) (string, error) {
 	fmt.Println("======================")
 	if err != nil {
 		fmt.Println("Error receiving response:", err)
+		return fmt.Sprintf("error receiving response from chat session : %w", err), fmt.Errorf("error receiving response from chat session: %w", err)
 	}
 
 	if res == nil {

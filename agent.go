@@ -24,7 +24,6 @@ type Agent struct {
 	ChatSession      *genai.Chat
 	History          []*genai.Content
 	Configuration    *genai.GenerateContentConfig
-	Tools            []*genai.Tool
 	PartsBuffer      []*genai.Part                                               // For tools responses
 	CallToolFunction func(caller *Agent, fn *genai.FunctionCall) (string, error) // Function to call tool functions
 }
@@ -39,7 +38,6 @@ func NewAgent(name, desc, instructions string, provider Provider, model string) 
 		ChatSession:      &genai.Chat{},
 		Configuration:    &genai.GenerateContentConfig{},
 		Temperature:      float32(1.0),
-		Tools:            make([]*genai.Tool, 0, 255),
 		PartsBuffer:      make([]*genai.Part, 0, 10000), // For tools responses
 		CallToolFunction: nil,
 	}
@@ -71,7 +69,6 @@ func NewAgent(name, desc, instructions string, provider Provider, model string) 
 			Threshold: genai.HarmBlockThresholdBlockNone,
 		},
 	}
-	na.Configuration.Tools = na.Tools
 
 	// init chat session
 	na.ChatSession, _ = Client.Chats.Create(
@@ -84,9 +81,14 @@ func NewAgent(name, desc, instructions string, provider Provider, model string) 
 	return &na
 }
 
-func (a *Agent) AddTools(tool ...*genai.Tool) {
-	a.Tools = append(a.Tools, tool...)
-	a.Configuration.Tools = append(a.Configuration.Tools, tool...)
+func (a *Agent) AddFunctionDeclarations(declarations ...*genai.FunctionDeclaration) {
+	if len(a.Configuration.Tools) == 0 {
+		a.Configuration.Tools = append(a.Configuration.Tools, &genai.Tool{})
+	} else if a.Configuration.Tools[0] == nil {
+		a.Configuration.Tools[0] = &genai.Tool{}
+	}
+
+	a.Configuration.Tools[0].FunctionDeclarations = append(a.Configuration.Tools[0].FunctionDeclarations, declarations...)
 }
 
 // UpdateInstructions updates the agent's instructions and the system instruction in the configuration.

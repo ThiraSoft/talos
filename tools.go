@@ -10,22 +10,6 @@ import (
 	"google.golang.org/genai"
 )
 
-// Tools provides a set of tools that can be used by agents to perform specific tasks.
-var (
-	DefaultTools = []*genai.Tool{}
-)
-
-func init() {
-	DefaultTools = append(
-		// DefaultTools is a slice of tools that can be used by agents.
-		DefaultTools,
-
-		// Add the tools to the DefaultTools slice
-		Tool_Definition_SendMessage(),
-		Tool_Definition_WriteFile(),
-	)
-}
-
 func (a *Agent) CallTool(fn *genai.FunctionCall) (string, error) {
 	// Custom function to call tool functions first, if provided.
 	if a.CallToolFunction != nil {
@@ -65,34 +49,27 @@ func FilterCode(input string) string {
 	return re.ReplaceAllString(input, "")
 }
 
-func Tool_Definition_SendMessage() *genai.Tool {
-	tool := &genai.Tool{
-		FunctionDeclarations: []*genai.FunctionDeclaration{
-			{
-				Name:        "send_message",
-				Description: "Allow you to send a message to someone.",
-				Parameters: &genai.Schema{
-					Type: "object",
-					Properties: map[string]*genai.Schema{
-						"from": {
-							Type:        "string",
-							Description: "The name of the sender.",
-						},
-						"to": {
-							Type:        "string",
-							Description: "The name of the receiver.",
-						},
-						"message": {
-							Type:        "string",
-							Description: "The message to send.",
-						},
-					},
-					Required: []string{"from", "to", "message"},
-				},
+var Tool_Definition_SendMessage *genai.FunctionDeclaration = &genai.FunctionDeclaration{
+	Name:        "send_message",
+	Description: "Allow you to send a message to someone.",
+	Parameters: &genai.Schema{
+		Type: "object",
+		Properties: map[string]*genai.Schema{
+			"from": {
+				Type:        "string",
+				Description: "The name of the sender.",
+			},
+			"to": {
+				Type:        "string",
+				Description: "The name of the receiver.",
+			},
+			"message": {
+				Type:        "string",
+				Description: "The message to send.",
 			},
 		},
-	}
-	return tool
+		Required: []string{"from", "to", "message"},
+	},
 }
 
 func SendMessage(tool *genai.FunctionCall) (string, error) {
@@ -117,30 +94,23 @@ func SendMessage(tool *genai.FunctionCall) (string, error) {
 	return response, nil
 }
 
-func Tool_Definition_WriteFile() *genai.Tool {
-	tool := &genai.Tool{
-		FunctionDeclarations: []*genai.FunctionDeclaration{
-			{
-				Name:        "write_file",
-				Description: "Write a file given a file_name and a content.",
-				Parameters: &genai.Schema{
-					Type: "object",
-					Properties: map[string]*genai.Schema{
-						"file_name": {
-							Type:        "string",
-							Description: "The name of the file to create",
-						},
-						"content": {
-							Type:        "string",
-							Description: "The string content of the file to create.",
-						},
-					},
-					Required: []string{"file_name", "content"},
-				},
+var Tool_Definition_WriteFile *genai.FunctionDeclaration = &genai.FunctionDeclaration{
+	Name:        "write_file",
+	Description: "Write a file given a file_name and a content.",
+	Parameters: &genai.Schema{
+		Type: "object",
+		Properties: map[string]*genai.Schema{
+			"file_name": {
+				Type:        "string",
+				Description: "The name of the file to create",
+			},
+			"content": {
+				Type:        "string",
+				Description: "The string content of the file to create.",
 			},
 		},
-	}
-	return tool
+		Required: []string{"file_name", "content"},
+	},
 }
 
 func WriteFile(tool *genai.FunctionCall) (string, error) {

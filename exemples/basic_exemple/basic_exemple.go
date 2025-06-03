@@ -18,7 +18,7 @@ func main() {
 		talos.PROVIDER_GOOGLE,
 		talos.DEFAULT_MODEL, // Use the default model defined in agent.go
 	)
-	BOB.AddTools(talos.Tool_Definition_SendMessage())
+	BOB.AddFunctionDeclarations(talos.Tool_Definition_SendMessage)
 
 	PATRICK := talos.NewAgent(
 		"PATRICK",
