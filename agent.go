@@ -99,3 +99,10 @@ func (a *Agent) GetInstructions() string {
 func (a *Agent) SetInstructions(newInstructions string) {
 	a.Configuration.SystemInstruction = genai.NewContentFromText(newInstructions, genai.RoleModel)
 }
+
+func (a *Agent) AddTextToHistory(text string) {
+	part := &genai.Part{
+		Text: text,
+	}
+	a.PartsBuffer = append(a.PartsBuffer, part)
+}

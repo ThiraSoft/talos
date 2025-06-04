@@ -98,7 +98,7 @@ func isRetryableError(err error) bool {
 }
 
 func (a *Agent) Chat(input string) (string, error) {
-	fullResponse := a.Name + " : "
+	fullResponse := ""
 	cs := a.ChatSession
 
 	// for each part in the buffer, append it to the parts slice
@@ -191,7 +191,7 @@ func (a *Agent) toolHandler(part *genai.Part) (string, error) {
 }
 
 func (a *Agent) ChatWithAudio(audioBytes []byte) (string, error) {
-	fullResponse := a.Name + " : "
+	fullResponse := ""
 	cs := a.ChatSession
 
 	// for each part in the buffer, append it to the parts slice
