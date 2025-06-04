@@ -14,7 +14,7 @@ import (
 // ChatWithRetry is a wrapper around the Chat function that retries on specific errors
 func (a *Agent) ChatWithRetry(input string, maxRetries int) (string, error) {
 	var lastErr error
-	var count int = 1
+	count := 1
 
 	// Loop
 	for attempt := 0; attempt < maxRetries; attempt++ {
@@ -26,6 +26,44 @@ func (a *Agent) ChatWithRetry(input string, maxRetries int) (string, error) {
 
 		// Tentative d'appel à Chat
 		response, err := a.Chat(input)
+		if err == nil {
+			return response, nil
+		}
+
+		// Stocker la dernière erreur
+		lastErr = err
+
+		// Log de l'erreur
+		log.Printf("Tentative %d échouée : %v", attempt+1, err)
+
+		// Conditions spécifiques de retry
+		if isRetryableError(err) {
+			count++
+			continue
+		}
+
+		// Arrêter si l'erreur n'est pas retraitable
+		break
+	}
+
+	return "", fmt.Errorf("échec après %d tentatives : %w", count, lastErr)
+}
+
+// ChatWithRetry is a wrapper around the Chat function that retries on specific errors
+func (a *Agent) ChatWithRetryWithAudio(audioBytes []byte, maxRetries int) (string, error) {
+	var lastErr error
+	count := 1
+
+	// Loop
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		// Délai *5 entre les tentatives
+		if attempt > 0 {
+			backoffDuration := time.Duration(5*attempt) * time.Second
+			time.Sleep(backoffDuration)
+		}
+
+		// Tentative d'appel à Chat
+		response, err := a.ChatWithAudio(audioBytes)
 		if err == nil {
 			return response, nil
 		}
@@ -80,7 +118,7 @@ func (a *Agent) Chat(input string) (string, error) {
 	fmt.Println("======================")
 	if err != nil {
 		fmt.Println("Error receiving response:", err)
-		return fmt.Sprintf("error receiving response from chat session : %w", err), fmt.Errorf("error receiving response from chat session: %w", err)
+		return fmt.Sprintf("error receiving response from chat session : %s", err), fmt.Errorf("error receiving response from chat session: %w", err)
 	}
 
 	if res == nil {
