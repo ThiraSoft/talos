@@ -93,6 +93,7 @@ func isRetryableError(err error) bool {
 	return errors.Is(err, context.DeadlineExceeded) ||
 		strings.Contains(err.Error(), "timeout") ||
 		strings.Contains(err.Error(), "connection reset") ||
+		strings.Contains(err.Error(), "500") ||
 		strings.Contains(err.Error(), "503") ||
 		strings.Contains(err.Error(), "429")
 }
