@@ -46,7 +46,7 @@ func (a *Agent) ChatWithRetry(input string, maxRetries int) (string, error) {
 		break
 	}
 
-	return "", fmt.Errorf("échec après %d tentatives : %w", count, lastErr)
+	return fmt.Sprintf("Echec de l'appel : %s", lastErr), fmt.Errorf("échec après %d tentatives : %w", count, lastErr)
 }
 
 // ChatWithRetry is a wrapper around the Chat function that retries on specific errors
@@ -84,7 +84,7 @@ func (a *Agent) ChatWithRetryWithAudio(audioBytes []byte, maxRetries int) (strin
 		break
 	}
 
-	return "", fmt.Errorf("échec après %d tentatives : %w", count, lastErr)
+	return fmt.Sprintf("Echec de l'appel : %s", lastErr), fmt.Errorf("échec après %d tentatives : %w", count, lastErr)
 }
 
 // Fonction pour déterminer si l'erreur justifie un retry
@@ -149,7 +149,7 @@ func (a *Agent) Chat(input string) (string, error) {
 
 		toolResponse, err := a.toolHandler(p)
 		if err != nil {
-			return "", fmt.Errorf("error handling tool response: %w", err)
+			return fmt.Sprintf("error handling tool response: %s", err), fmt.Errorf("error handling tool response: %w", err)
 		}
 
 		fullResponse += toolResponse
@@ -171,8 +171,8 @@ func (a *Agent) toolHandler(part *genai.Part) (string, error) {
 		fn := part.FunctionCall
 		resp, err := a.CallTool(fn)
 		if err != nil {
-			fmt.Print("Erreur lors de l'utilisation du tool : ", err)
-			return "", fmt.Errorf("error calling tool %s: %w", fn.Name, err)
+			fmt.Print("Erreur lors de l'utilisation du tool : \n", "resp : ", resp, "\n", "err : ", err)
+			// return fmt.Sprintf("Tool : %s - %s", fn.Name, err), fmt.Errorf("tool : %s - %w", fn.Name, err)
 		}
 
 		// Add the response to the agent's history
@@ -221,7 +221,7 @@ func (a *Agent) ChatWithAudio(audioBytes []byte) (string, error) {
 	fmt.Println("======================")
 	if err != nil {
 		fmt.Println("Error receiving response:", err)
-		return fmt.Sprintf("error receiving response from chat session : %w", err), fmt.Errorf("error receiving response from chat session: %w", err)
+		return fmt.Sprintf("error receiving response from chat session : %s", err), fmt.Errorf("error receiving response from chat session: %w", err)
 	}
 
 	if res == nil {
@@ -251,7 +251,7 @@ func (a *Agent) ChatWithAudio(audioBytes []byte) (string, error) {
 
 		toolResponse, err := a.toolHandler(p)
 		if err != nil {
-			return "", fmt.Errorf("error handling tool response: %w", err)
+			return fmt.Sprintf("error handling tool response: %s", err), fmt.Errorf("error handling tool response: %w", err)
 		}
 
 		fullResponse += toolResponse
