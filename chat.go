@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -34,7 +33,11 @@ func (a *Agent) ChatWithRetry(input string, maxRetries int) (string, error) {
 		lastErr = err
 
 		// Log de l'erreur
-		log.Printf("Tentative %d échouée : %v", attempt+1, err)
+		logger(
+			fmt.Sprintf("Tentative %d échouée : %v", attempt+1, err),
+			DEBUG_LEVEL_ALL,
+			DEBUG_LEVEL_ERRORS,
+		)
 
 		// Conditions spécifiques de retry
 		if isRetryableError(err) {
@@ -72,7 +75,11 @@ func (a *Agent) ChatWithRetryWithAudio(audioBytes []byte, maxRetries int) (strin
 		lastErr = err
 
 		// Log de l'erreur
-		log.Printf("Tentative %d échouée : %v", attempt+1, err)
+		logger(
+			fmt.Sprintf("Tentative %d échouée : %v", attempt+1, err),
+			DEBUG_LEVEL_ALL,
+			DEBUG_LEVEL_ERRORS,
+		)
 
 		// Conditions spécifiques de retry
 		if isRetryableError(err) {
@@ -114,38 +121,52 @@ func (a *Agent) Chat(input string) (string, error) {
 
 	// send the message to the chat session
 	res, err := cs.SendMessage(Ctx, parts...)
-	fmt.Println("\n======================")
-	fmt.Println(" " + a.Name + " : ")
-	fmt.Println("======================")
+
+	// Display the agent's name
+	logger(
+		a.Name+" : ",
+		DEBUG_LEVEL_ALL,
+		DEBUG_LEVEL_ERRORS,
+	)
 	if err != nil {
-		fmt.Println("Error receiving response:", err)
+		logger(
+			fmt.Sprintf("Error receiving response: %s", err),
+			DEBUG_LEVEL_ALL,
+		)
 		return fmt.Sprintf("error receiving response from chat session : %s", err), fmt.Errorf("error receiving response from chat session: %w", err)
 	}
 
 	if res == nil {
-		fmt.Println("Received nil chunk, skipping...")
+		logger("Received nil chunk, skipping...", DEBUG_LEVEL_ALL, DEBUG_LEVEL_ERRORS)
 		return "", fmt.Errorf("received nil response from chat session")
 	}
 	if len(res.Candidates) == 0 {
-		fmt.Println("No candidates in chunk, skipping...")
+		logger("No candidates in chunk, skipping...", DEBUG_LEVEL_ALL, DEBUG_LEVEL_ERRORS)
 		return "", fmt.Errorf("no candidates in response from chat session")
 	}
 	if res.Candidates[0].Content == nil {
-		fmt.Println("No content in candidate, skipping...")
+		logger("No content in candidate, skipping...", DEBUG_LEVEL_ALL, DEBUG_LEVEL_ERRORS)
 		return "", fmt.Errorf("no content in candidate from chat session")
 	}
 
-	fmt.Println("PARTS : ", len(res.Candidates[0].Content.Parts))
+	logger("PARTS : "+fmt.Sprint(len(res.Candidates[0].Content.Parts)), DEBUG_LEVEL_ALL)
+	if len(res.Candidates[0].Content.Parts) == 0 {
+		return "", fmt.Errorf("no parts in response from chat session")
+	}
+
 	for _, part := range res.Candidates[0].Content.Parts {
-		fmt.Println("Part text: ", part.Text)
+		logger("Part text: "+part.Text, DEBUG_LEVEL_ALL)
 		if part.FunctionCall != nil {
-			fmt.Println("Part FunctionCall: ", part.FunctionCall.Name, part.FunctionCall.Args)
+			logger(fmt.Sprintf("Part FunctionCall: %s %v", part.FunctionCall.Name, part.FunctionCall.Args), DEBUG_LEVEL_ALL)
 		}
 	}
 
 	for _, p := range res.Candidates[0].Content.Parts {
-		fullResponse += p.Text
-		responseHandler(p)
+		// Add the response to the agent's responses channel
+		if p.Text != "" {
+			a.OutputNotification(p.Text, "TEXT")
+			fullResponse += p.Text
+		}
 
 		toolResponse, err := a.toolHandler(p)
 		if err != nil {
@@ -158,25 +179,16 @@ func (a *Agent) Chat(input string) (string, error) {
 	return fullResponse, nil
 }
 
-func responseHandler(part *genai.Part) (string, error) {
-	response := fmt.Sprint(part.Text)
-	// fmt.Print(response)
-
-	return response, nil
-}
-
 func (a *Agent) toolHandler(part *genai.Part) (string, error) {
 	// Vérifier s'il y a un appel de fonction
 	if part.FunctionCall != nil {
 		fn := part.FunctionCall
 		resp, err := a.CallTool(fn)
 		if err != nil {
-			fmt.Print("Erreur lors de l'utilisation du tool : \n", "resp : ", resp, "\n", "err : ", err)
-			// return fmt.Sprintf("Tool : %s - %s", fn.Name, err), fmt.Errorf("tool : %s - %w", fn.Name, err)
+			logger("Erreur lors de l'utilisation du tool : "+fmt.Sprintf("Tool : %s \n resp : %s \n err : %s", fn.Name, resp, err), DEBUG_LEVEL_ALL, DEBUG_LEVEL_ERRORS)
 		}
 
 		// Add the response to the agent's history
-		// a.ChatSession.AppendToHistory(
 		a.PartsBuffer = append(a.PartsBuffer,
 			&genai.Part{
 				FunctionResponse: &genai.FunctionResponse{
@@ -216,38 +228,52 @@ func (a *Agent) ChatWithAudio(audioBytes []byte) (string, error) {
 
 	// send the message to the chat session
 	res, err := cs.SendMessage(Ctx, parts...)
-	fmt.Println("\n======================")
-	fmt.Println(" " + a.Name + " : ")
-	fmt.Println("======================")
+
+	// Display the agent's name
+	logger(
+		a.Name+" : ",
+		DEBUG_LEVEL_ALL,
+		DEBUG_LEVEL_ERRORS,
+	)
 	if err != nil {
-		fmt.Println("Error receiving response:", err)
+		logger(
+			fmt.Sprintf("Error receiving response: %s", err),
+			DEBUG_LEVEL_ALL,
+		)
 		return fmt.Sprintf("error receiving response from chat session : %s", err), fmt.Errorf("error receiving response from chat session: %w", err)
 	}
 
 	if res == nil {
-		fmt.Println("Received nil chunk, skipping...")
+		logger("Received nil chunk, skipping...", DEBUG_LEVEL_ALL, DEBUG_LEVEL_ERRORS)
 		return "", fmt.Errorf("received nil response from chat session")
 	}
 	if len(res.Candidates) == 0 {
-		fmt.Println("No candidates in chunk, skipping...")
+		logger("No candidates in chunk, skipping...", DEBUG_LEVEL_ALL, DEBUG_LEVEL_ERRORS)
 		return "", fmt.Errorf("no candidates in response from chat session")
 	}
 	if res.Candidates[0].Content == nil {
-		fmt.Println("No content in candidate, skipping...")
+		logger("No content in candidate, skipping...", DEBUG_LEVEL_ALL, DEBUG_LEVEL_ERRORS)
 		return "", fmt.Errorf("no content in candidate from chat session")
 	}
 
-	fmt.Println("PARTS : ", len(res.Candidates[0].Content.Parts))
+	logger("PARTS : "+fmt.Sprint(len(res.Candidates[0].Content.Parts)), DEBUG_LEVEL_ALL)
+	if len(res.Candidates[0].Content.Parts) == 0 {
+		return "", fmt.Errorf("no parts in response from chat session")
+	}
+
 	for _, part := range res.Candidates[0].Content.Parts {
-		fmt.Println("Part text: ", part.Text)
+		logger("Part text: "+part.Text, DEBUG_LEVEL_ALL)
 		if part.FunctionCall != nil {
-			fmt.Println("Part FunctionCall: ", part.FunctionCall.Name, part.FunctionCall.Args)
+			logger(fmt.Sprintf("Part FunctionCall: %s %v", part.FunctionCall.Name, part.FunctionCall.Args), DEBUG_LEVEL_ALL)
 		}
 	}
 
 	for _, p := range res.Candidates[0].Content.Parts {
-		fullResponse += p.Text
-		responseHandler(p)
+		// Add the response to the agent's responses channel
+		if p.Text != "" {
+			a.OutputNotification(p.Text, "TEXT")
+			fullResponse += p.Text
+		}
 
 		toolResponse, err := a.toolHandler(p)
 		if err != nil {

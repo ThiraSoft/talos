@@ -1,8 +1,5 @@
 package talos
 
-type (
-	Provider string
-)
 
 const (
 	PROVIDER_OPEN_AI   Provider = "OPEN_AI"

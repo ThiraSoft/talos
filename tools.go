@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
 
 	"google.golang.org/genai"
 )
@@ -13,7 +11,8 @@ import (
 func (a *Agent) CallTool(fn *genai.FunctionCall) (string, error) {
 	// Custom function to call tool functions first, if provided.
 	if a.CallToolFunction != nil {
-		return a.CallToolFunction(a, fn)
+		resp, err := a.CallToolFunction(a, fn)
+		return resp, err
 	}
 
 	// If no custom function is provided, use the default tool handler.
@@ -36,19 +35,7 @@ func (a *Agent) CallTool(fn *genai.FunctionCall) (string, error) {
 	return "unknown tool function", fmt.Errorf("unknown tool function: %s", fn.Name)
 }
 
-// filterBackticks removes (multiline) all text between triple backticks (including the backticks themselves) from the input string.
-// It uses a regular expression to match the pattern of triple backticks and any text in between.
-func FilterTools(input string) string {
-	re := regexp.MustCompile("(?s)```tool.*?```")
-	return strings.TrimSpace(re.ReplaceAllString(input, ""))
-}
-
-// FilterCode removes (multiline) all text between triple backticks (including the backticks themselves) from the input string.
-func FilterCode(input string) string {
-	re := regexp.MustCompile("(?s)```.*?```")
-	return re.ReplaceAllString(input, "")
-}
-
+// Tool_Definition_SendMessage is the definition of the send_message tool function.
 var Tool_Definition_SendMessage *genai.FunctionDeclaration = &genai.FunctionDeclaration{
 	Name:        "send_message",
 	Description: "Allow you to send a message to someone.",
@@ -72,21 +59,22 @@ var Tool_Definition_SendMessage *genai.FunctionDeclaration = &genai.FunctionDecl
 	},
 }
 
+// SendMessage sends a message to another agent.
 func SendMessage(tool *genai.FunctionCall) (string, error) {
 	message := tool.Args["message"].(string)
 	// from := tool.Args["from"].(string)
 	to := tool.Args["to"].(string)
-	// fmt.Println("\n Sending message to : ", to, "\n Message : ", message)
+	logger("Sending message to: "+to+" with content: "+message, DEBUG_LEVEL_ALL)
 
 	var response string = ""
 	var err error
 
 	for _, agent := range Agents { // Global Agents is updated by the flow when it starts
 		if agent.Name == to {
-			// fmt.Println("\nFound agent:", agent.Name)
+			logger("Found agent: "+agent.Name, DEBUG_LEVEL_ALL)
 			response, err = agent.ChatWithRetry(message, 5)
 			if err != nil {
-				return "Error while asking " + to + ": " + err.Error(), fmt.Errorf("Error while asking " + to + ": " + err.Error())
+				return "Error while asking " + to + ": " + err.Error(), fmt.Errorf("error while asking %s : %w", to, err)
 			}
 			return "Response from " + agent.Name + " : " + response, nil
 		}
@@ -94,6 +82,7 @@ func SendMessage(tool *genai.FunctionCall) (string, error) {
 	return response, nil
 }
 
+// Tool_Definition_WriteFile is the definition of the write_file tool function.
 var Tool_Definition_WriteFile *genai.FunctionDeclaration = &genai.FunctionDeclaration{
 	Name:        "write_file",
 	Description: "Write a file given a file_name and a content.",
@@ -113,20 +102,21 @@ var Tool_Definition_WriteFile *genai.FunctionDeclaration = &genai.FunctionDeclar
 	},
 }
 
+// WriteFile writes a file with the given file_name and content.
 func WriteFile(tool *genai.FunctionCall) (string, error) {
 	// Validation
 	filename, ok := tool.Args["file_name"].(string)
 	if !ok {
-		return "Invalid arguments 'file_name' for write_file tool", fmt.Errorf("Invalid arguments 'file_name' for write_file tool")
+		return "Invalid arguments 'file_name' for write_file tool", fmt.Errorf("invalid arguments 'file_name' for write_file tool")
 	}
 	content, ok := tool.Args["content"].(string)
 	if !ok {
-		return "Invalid arguments 'content' for write_file tool", fmt.Errorf("Invalid arguments 'content' for write_file tool")
+		return "Invalid arguments 'content' for write_file tool", fmt.Errorf("invalid arguments 'content' for write_file tool")
 	}
 
 	// Create the directory if it does not exist
 	if err := os.MkdirAll(filepath.Dir(filename), 0755); err != nil {
-		fmt.Println("Error creating directory:", err)
+		logger("Error creating directory: "+err.Error(), DEBUG_LEVEL_ALL, DEBUG_LEVEL_ERRORS)
 		return "Error creating directory: " + err.Error(), err
 	}
 

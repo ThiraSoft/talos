@@ -8,15 +8,6 @@ import (
 	"google.golang.org/genai"
 )
 
-type Flow struct {
-	Id          string           `json:"id"`
-	Name        string           `json:"name"`
-	Description string           `json:"description"`
-	Tasks       []*Task          `json:"tasks"`
-	Agents      []*Agent         `json:"agents"`  // Agents involved in the flow
-	History     []*genai.Content `json:"history"` // History of the flow
-}
-
 var Agents = []*Agent{}
 
 func (f *Flow) AddTask(task Task) {
@@ -43,12 +34,6 @@ func NewFlow(name, description string, tasks []*Task, agents []*Agent) *Flow {
 		History:     make([]*genai.Content, 0, 10000),
 	}
 
-	// Initialize the common history for each agent
-	for _, agent := range agents {
-		// agent.ChatSession.SetHistory(flow.History)
-		agent.History = flow.History
-	}
-
 	return flow
 }
 
@@ -58,11 +43,7 @@ func (f *Flow) AddAgents(agents ...*Agent) {
 		return
 	}
 
-	for _, a := range agents {
-		f.Agents = append(f.Agents, a)
-		// a.ChatSession.SetHistory(f.History)
-		a.History = f.History // Set the common history for each agent
-	}
+	f.Agents = append(f.Agents, agents...)
 }
 
 func (f *Flow) Start() string {
@@ -105,7 +86,10 @@ func (f *Flow) Start() string {
 				return "Error executing task: " + err.Error()
 			}
 			if strings.Contains(resp, "TASK_DONE") {
-				fmt.Println("Task "+t.Name+" completed by agent:", f.Agents[0].Name)
+				logger(
+					fmt.Sprintf("Task %s completed by agent: %s", t.Name, f.Agents[0].Name),
+					DEBUG_LEVEL_ALL,
+				)
 				break
 			}
 		}

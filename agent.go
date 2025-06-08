@@ -1,45 +1,70 @@
 package talos
 
 import (
+	"context"
+
 	"google.golang.org/genai"
 )
 
 var (
-	// DEFAULT_MODEL string = "gemini-2.5-flash-preview-04-17"
-	// DEFAULT_MODEL string = "gemini-2.0-flash-lite"
-	// DEFAULT_MODEL    string   = "gemini-2.0-flash"
+	// DEFAULT_MODEL    string   = "gemini-2.0-flash-lite"
 	DEFAULT_MODEL    string   = "gemini-2.5-flash-preview-05-20"
 	DEFAULT_PROVIDER Provider = PROVIDER_GOOGLE // Default provider to use if not specified
 )
 
-type Agent struct {
-	Name        string
-	Description string
-	Role        string
-
-	Model       string
-	Temperature float32
-
-	Provider         Provider
-	ChatSession      *genai.Chat
-	History          []*genai.Content
-	Configuration    *genai.GenerateContentConfig
-	PartsBuffer      []*genai.Part                                               // For tools responses
-	CallToolFunction func(caller *Agent, fn *genai.FunctionCall) (string, error) // Function to call tool functions
+// OutputNotification sends a notification to the agent's output channel.
+// It includes the agent's name, the message content, and the type of message (e.g., text or audio).
+// This function is used send responses or notifications from the agent to the output channel.
+func (a *Agent) OutputNotification(messageContent, messageType string) {
+	a.OutputChan <- AgentNotification{
+		AgentName:      a.Name,
+		MessageContent: messageContent,
+		MessageType:    messageType,
+	}
 }
 
-func NewAgent(name, desc, instructions string, provider Provider, model string) *Agent {
+// Async starts a goroutine that listens for input messages and processes them asynchronously.
+// It handles both text and audio messages, calling the appropriate chat methods.
+// The input messages are expected to be of type AgentNotification, which contains the message content and type.
+// This allows the agent to handle multiple messages concurrently without blocking the main execution flow.
+func (a *Agent) Async() {
+	go func() {
+		for {
+			select {
+			case input := <-a.InputChan:
+				switch input.MessageType {
+				case "TEXT":
+					a.ChatWithRetry(input.MessageContent, 5)
+				case "AUDIO":
+					a.ChatWithRetryWithAudio(input.Bytes, 5)
+				}
+			case <-a.Ctx.Done():
+				return
+			}
+		}
+	}()
+}
+
+func NewAgent(
+	name, desc, instructions string,
+	provider Provider,
+	model string,
+) *Agent {
+	ctx, ctxCancelFunc := context.WithCancel(context.Background())
+
 	na := Agent{
 		Name:             name,
 		Description:      desc,
 		Provider:         provider,
 		Model:            model,
-		History:          make([]*genai.Content, 0, 10000),
 		ChatSession:      &genai.Chat{},
 		Configuration:    &genai.GenerateContentConfig{},
 		Temperature:      float32(1.0),
-		PartsBuffer:      make([]*genai.Part, 0, 10000), // For tools responses
+		PartsBuffer:      make([]*genai.Part, 0, 1000), // For tools responses
 		CallToolFunction: nil,
+		OutputChan:       make(chan AgentNotification, 255), // Buffered channel for responses
+		Ctx:              ctx,
+		CtxCancelFunc:    ctxCancelFunc,
 	}
 
 	baseInstructions := "You are an AI agent named " + na.Name + ".\n"
@@ -75,7 +100,7 @@ func NewAgent(name, desc, instructions string, provider Provider, model string) 
 		Ctx,
 		na.Model,
 		na.Configuration,
-		na.History,
+		[]*genai.Content{},
 	)
 
 	return &na
@@ -98,11 +123,4 @@ func (a *Agent) GetInstructions() string {
 
 func (a *Agent) SetInstructions(newInstructions string) {
 	a.Configuration.SystemInstruction = genai.NewContentFromText(newInstructions, genai.RoleModel)
-}
-
-func (a *Agent) AddTextToHistory(text string) {
-	part := &genai.Part{
-		Text: text,
-	}
-	a.PartsBuffer = append(a.PartsBuffer, part)
 }
