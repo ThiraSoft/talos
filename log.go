@@ -1,28 +1,21 @@
 package talos
 
-const (
-	DEBUG_LEVEL_NONE   = "NONE"
-	DEBUG_LEVEL_ERRORS = "ERRORS"
-	DEBUG_LEVEL_ALL    = "ALL"
+import (
+	"log/slog"
+	"os"
 )
 
-var DEBUG_LEVEL DebugLevel = DEBUG_LEVEL_ALL
+var logger *slog.Logger
 
-func logger(message string, level ...DebugLevel) {
-	if message == "" {
-		return
-	}
-	if checkDebugLevel(level, DEBUG_LEVEL) {
-		println(message)
-	}
+func init() {
+	SetLogLevel(slog.LevelError) // Définit le niveau de log par défaut à Error
 }
 
-// Verify if the provided debug level is enabled
-func checkDebugLevel(s []DebugLevel, level DebugLevel) bool {
-	for _, v := range s {
-		if v == level {
-			return true
-		}
-	}
-	return false
+// Init initialise un logger configuré
+func SetLogLevel(level slog.Leveler) {
+	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: level,
+	})
+
+	logger = slog.New(handler)
 }

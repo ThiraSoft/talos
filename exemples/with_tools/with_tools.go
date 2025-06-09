@@ -1,6 +1,10 @@
 package main
 
-import "github.com/ThiraSoft/talos"
+import (
+	"log/slog"
+
+	"github.com/ThiraSoft/talos"
+)
 
 // =================
 // This example shows how to use Talos with tools to create a fantasy world.
@@ -16,6 +20,9 @@ var (
 )
 
 func init() {
+	// Show logs in debug mode
+	talos.SetLogLevel(slog.LevelDebug) // Set the log level to debug to see all logs
+
 	AUTHOR = talos.NewAgent(
 		"AUTHOR",
 		"L'auteur qui imagine l'histoire, les dialogues et les descriptions.",

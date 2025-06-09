@@ -1,12 +1,20 @@
 package main
 
-import "github.com/ThiraSoft/talos"
+import (
+	"log/slog"
+
+	"github.com/ThiraSoft/talos"
+)
 
 // =================
 // This example shows how to use Talos to create a flow with multiple agents and tasks.
 // =================
 
 func main() {
+	// Show logs in debug mode
+	talos.SetLogLevel(slog.LevelDebug) // Set the log level to debug to see all logs
+
+	// Define the agents
 	BOB := talos.NewAgent(
 		"BOB",
 		"Question asking agent",
@@ -44,6 +52,7 @@ func main() {
 		talos.DEFAULT_MODEL, // Use the default model defined in agent.go
 	)
 
+	// Define the tasks
 	TASK_1 := talos.NewTask(
 		"TASK_EXEMPLE_QUESTION",
 		`
@@ -60,7 +69,7 @@ func main() {
   `,
 	)
 
-	// Make the flow
+	// Define the flow
 	flow := talos.NewFlow(
 		"Name of the flow",
 		"Description of the flow",

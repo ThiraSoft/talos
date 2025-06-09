@@ -2,6 +2,7 @@ package talos
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -64,14 +65,14 @@ func SendMessage(tool *genai.FunctionCall) (string, error) {
 	message := tool.Args["message"].(string)
 	// from := tool.Args["from"].(string)
 	to := tool.Args["to"].(string)
-	logger("Sending message to: "+to+" with content: "+message, DEBUG_LEVEL_ALL)
+	logger.Debug("SendMessage called", slog.String("to", to), slog.String("message", message))
 
 	var response string = ""
 	var err error
 
 	for _, agent := range Agents { // Global Agents is updated by the flow when it starts
 		if agent.Name == to {
-			logger("Found agent: "+agent.Name, DEBUG_LEVEL_ALL)
+			logger.Debug("Found agent", slog.String("agent_name", agent.Name))
 			response, err = agent.ChatWithRetry(message, 5)
 			if err != nil {
 				return "Error while asking " + to + ": " + err.Error(), fmt.Errorf("error while asking %s : %w", to, err)
@@ -116,7 +117,7 @@ func WriteFile(tool *genai.FunctionCall) (string, error) {
 
 	// Create the directory if it does not exist
 	if err := os.MkdirAll(filepath.Dir(filename), 0755); err != nil {
-		logger("Error creating directory: "+err.Error(), DEBUG_LEVEL_ALL, DEBUG_LEVEL_ERRORS)
+		logger.Error("Error creating directory", slog.String("directory", filepath.Dir(filename)), slog.String("error", err.Error()))
 		return "Error creating directory: " + err.Error(), err
 	}
 

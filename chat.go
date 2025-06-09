@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -33,11 +34,7 @@ func (a *Agent) ChatWithRetry(input string, maxRetries int) (string, error) {
 		lastErr = err
 
 		// Log de l'erreur
-		logger(
-			fmt.Sprintf("Tentative %d échouée : %v", attempt+1, err),
-			DEBUG_LEVEL_ALL,
-			DEBUG_LEVEL_ERRORS,
-		)
+		logger.Warn("Tentative échouée", slog.Int("tentative", attempt+1), slog.String("erreur", err.Error()))
 
 		// Conditions spécifiques de retry
 		if isRetryableError(err) {
@@ -75,11 +72,7 @@ func (a *Agent) ChatWithRetryWithAudio(audioBytes []byte, maxRetries int) (strin
 		lastErr = err
 
 		// Log de l'erreur
-		logger(
-			fmt.Sprintf("Tentative %d échouée : %v", attempt+1, err),
-			DEBUG_LEVEL_ALL,
-			DEBUG_LEVEL_ERRORS,
-		)
+		logger.Warn("Tentative échouée", slog.Int("tentative", attempt+1), slog.String("erreur", err.Error()))
 
 		// Conditions spécifiques de retry
 		if isRetryableError(err) {
@@ -123,41 +116,34 @@ func (a *Agent) Chat(input string) (string, error) {
 	res, err := cs.SendMessage(Ctx, parts...)
 
 	// Display the agent's name
-	logger(
-		a.Name+" : ",
-		DEBUG_LEVEL_ALL,
-		DEBUG_LEVEL_ERRORS,
-	)
+	logger.Debug("Agent called", slog.String("agent_name", a.Name), slog.String("input", input))
 	if err != nil {
-		logger(
-			fmt.Sprintf("Error receiving response: %s", err),
-			DEBUG_LEVEL_ALL,
-		)
+		logger.Error("Error receiving response", slog.String("error", err.Error()))
 		return fmt.Sprintf("error receiving response from chat session : %s", err), fmt.Errorf("error receiving response from chat session: %w", err)
 	}
 
 	if res == nil {
-		logger("Received nil chunk, skipping...", DEBUG_LEVEL_ALL, DEBUG_LEVEL_ERRORS)
+		logger.Error("Received nil chunk, skipping...")
 		return "", fmt.Errorf("received nil response from chat session")
 	}
 	if len(res.Candidates) == 0 {
-		logger("No candidates in chunk, skipping...", DEBUG_LEVEL_ALL, DEBUG_LEVEL_ERRORS)
+		logger.Error("No candidates in chunk, skipping...")
 		return "", fmt.Errorf("no candidates in response from chat session")
 	}
 	if res.Candidates[0].Content == nil {
-		logger("No content in candidate, skipping...", DEBUG_LEVEL_ALL, DEBUG_LEVEL_ERRORS)
+		logger.Error("No content in candidate, skipping...")
 		return "", fmt.Errorf("no content in candidate from chat session")
 	}
 
-	logger("PARTS : "+fmt.Sprint(len(res.Candidates[0].Content.Parts)), DEBUG_LEVEL_ALL)
+	logger.Debug("PARTS", slog.Int("count", len(res.Candidates[0].Content.Parts)))
 	if len(res.Candidates[0].Content.Parts) == 0 {
 		return "", fmt.Errorf("no parts in response from chat session")
 	}
 
 	for _, part := range res.Candidates[0].Content.Parts {
-		logger("Part text: "+part.Text, DEBUG_LEVEL_ALL)
+		logger.Debug("Part text", slog.String("text", part.Text))
 		if part.FunctionCall != nil {
-			logger(fmt.Sprintf("Part FunctionCall: %s %v", part.FunctionCall.Name, part.FunctionCall.Args), DEBUG_LEVEL_ALL)
+			logger.Debug("Part FunctionCall", slog.String("name", part.FunctionCall.Name), slog.Any("args", part.FunctionCall.Args))
 		}
 	}
 
@@ -185,7 +171,7 @@ func (a *Agent) toolHandler(part *genai.Part) (string, error) {
 		fn := part.FunctionCall
 		resp, err := a.CallTool(fn)
 		if err != nil {
-			logger("Erreur lors de l'utilisation du tool : "+fmt.Sprintf("Tool : %s \n resp : %s \n err : %s", fn.Name, resp, err), DEBUG_LEVEL_ALL, DEBUG_LEVEL_ERRORS)
+			logger.Error("Error using tool", slog.String("tool_name", fn.Name), slog.String("response", resp), slog.String("error", err.Error()))
 		}
 
 		// Add the response to the agent's history
@@ -230,41 +216,34 @@ func (a *Agent) ChatWithAudio(audioBytes []byte) (string, error) {
 	res, err := cs.SendMessage(Ctx, parts...)
 
 	// Display the agent's name
-	logger(
-		a.Name+" : ",
-		DEBUG_LEVEL_ALL,
-		DEBUG_LEVEL_ERRORS,
-	)
+	logger.Debug("Agent called", slog.String("agent_name", a.Name), slog.String("audio_length", fmt.Sprintf("%d bytes", len(audioBytes))))
 	if err != nil {
-		logger(
-			fmt.Sprintf("Error receiving response: %s", err),
-			DEBUG_LEVEL_ALL,
-		)
+		logger.Error("Error receiving response", slog.String("error", err.Error()))
 		return fmt.Sprintf("error receiving response from chat session : %s", err), fmt.Errorf("error receiving response from chat session: %w", err)
 	}
 
 	if res == nil {
-		logger("Received nil chunk, skipping...", DEBUG_LEVEL_ALL, DEBUG_LEVEL_ERRORS)
+		logger.Error("Received nil chunk, skipping...")
 		return "", fmt.Errorf("received nil response from chat session")
 	}
 	if len(res.Candidates) == 0 {
-		logger("No candidates in chunk, skipping...", DEBUG_LEVEL_ALL, DEBUG_LEVEL_ERRORS)
+		logger.Error("No candidates in chunk, skipping...")
 		return "", fmt.Errorf("no candidates in response from chat session")
 	}
 	if res.Candidates[0].Content == nil {
-		logger("No content in candidate, skipping...", DEBUG_LEVEL_ALL, DEBUG_LEVEL_ERRORS)
+		logger.Error("No content in candidate, skipping...")
 		return "", fmt.Errorf("no content in candidate from chat session")
 	}
 
-	logger("PARTS : "+fmt.Sprint(len(res.Candidates[0].Content.Parts)), DEBUG_LEVEL_ALL)
+	logger.Debug("PARTS", slog.Int("count", len(res.Candidates[0].Content.Parts)))
 	if len(res.Candidates[0].Content.Parts) == 0 {
 		return "", fmt.Errorf("no parts in response from chat session")
 	}
 
 	for _, part := range res.Candidates[0].Content.Parts {
-		logger("Part text: "+part.Text, DEBUG_LEVEL_ALL)
+		logger.Debug("Part text", slog.String("text", part.Text))
 		if part.FunctionCall != nil {
-			logger(fmt.Sprintf("Part FunctionCall: %s %v", part.FunctionCall.Name, part.FunctionCall.Args), DEBUG_LEVEL_ALL)
+			logger.Debug("Part FunctionCall", slog.String("name", part.FunctionCall.Name), slog.Any("args", part.FunctionCall.Args))
 		}
 	}
 

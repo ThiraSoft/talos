@@ -13,6 +13,8 @@ var (
 )
 
 func init() {
+	// SetLogLevel(slog.LevelError) // Initialize the logger with default level
+
 	Ctx = context.Background()
 	Client, _ = genai.NewClient(Ctx, &genai.ClientConfig{
 		APIKey:  os.Getenv("GEMINI_API_KEY"),

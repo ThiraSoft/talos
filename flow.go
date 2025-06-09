@@ -1,7 +1,6 @@
 package talos
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
@@ -86,10 +85,7 @@ func (f *Flow) Start() string {
 				return "Error executing task: " + err.Error()
 			}
 			if strings.Contains(resp, "TASK_DONE") {
-				logger(
-					fmt.Sprintf("Task %s completed by agent: %s", t.Name, f.Agents[0].Name),
-					DEBUG_LEVEL_ALL,
-				)
+				logger.Debug("Task completed by agent", "task_name", t.Name, "agent_name", f.Agents[0].Name)
 				break
 			}
 		}

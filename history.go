@@ -1,7 +1,7 @@
 package talos
 
 import (
-	"fmt"
+	"log/slog"
 
 	"google.golang.org/genai"
 )
@@ -26,7 +26,7 @@ func (a *Agent) SetHistory(history []*genai.Content) {
 	)
 
 	// Log the history set
-	logger(fmt.Sprintf("History set for agent %s: %d messages", a.Name, len(history)), DEBUG_LEVEL_ALL)
+	logger.Debug("History set for agent", slog.String("agent_name", a.Name), slog.Int("message_count", len(history)))
 }
 
 // AddTextToHistory adds a text message to the agent's history.
